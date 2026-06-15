@@ -3,7 +3,7 @@
   "short_name": "Clima",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f7f8",
+  "background_color": "#eef2f5",
   "theme_color": "#176b87",
   "icons": [
     {

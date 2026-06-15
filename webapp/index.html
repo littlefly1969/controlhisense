@@ -9,13 +9,13 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main>
-    <header>
+  <main class="app-shell">
+    <header class="topbar">
       <div>
         <h1>Condizionatori</h1>
         <div class="muted" id="status">Pronto</div>
       </div>
-      <div class="row">
+      <div class="toolbar">
         <button class="primary" id="refreshBtn">Aggiorna stato</button>
         <button id="syncTimeBtn">Invia ora</button>
         <button id="scanBtn">Diagnostica</button>
@@ -23,7 +23,7 @@
       </div>
     </header>
 
-    <section class="panel">
+    <section class="status-strip">
       <div class="cols">
         <div><strong>Ultimo polling</strong><div class="muted" id="lastPoll">-</div></div>
         <div><strong>Ultimo invio ora</strong><div class="muted" id="lastTimeSync">-</div></div>
@@ -32,23 +32,23 @@
       </div>
     </section>
 
-    <section class="control-layout">
-      <aside class="device-list" id="deviceList"></aside>
-      <section class="detail-panel" id="deviceDetail"></section>
-    </section>
+    <nav class="device-rail" id="deviceList"></nav>
+
+    <section class="dashboard" id="deviceDetail"></section>
 
     <h2>Timer server</h2>
-    <section class="panel">
+    <section class="panel timer-panel">
       <div class="muted">I timer sono eseguiti dal server web per il condizionatore selezionato.</div>
       <div class="stack" id="timers"></div>
     </section>
 
-    <h2>Diagnostica</h2>
-    <section class="grid" id="hosts"></section>
-    <section class="grid" id="wifi"></section>
-
-    <h2>Risposta</h2>
-    <pre id="result" class="card"></pre>
+    <details class="diagnostics">
+      <summary>Diagnostica</summary>
+      <section class="grid" id="hosts"></section>
+      <section class="grid" id="wifi"></section>
+      <h2>Risposta</h2>
+      <pre id="result" class="card"></pre>
+    </details>
   </main>
   <script src="/app.js"></script>
 </body>

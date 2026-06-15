@@ -5,6 +5,30 @@ let selectedHost = localStorage.getItem('selectedHost') || '';
 
 const $ = id => document.getElementById(id);
 
+const modeButtons = [
+  {command: 'mode_cool', label: 'Freddo', value: 2},
+  {command: 'mode_heat', label: 'Caldo', value: 5},
+  {command: 'mode_dry', label: 'Dry', value: 3},
+  {command: 'mode_fan', label: 'Ventola', value: 4},
+];
+
+const fanButtons = [
+  {command: 'speed_auto', label: 'Auto'},
+  {command: 'speed_low', label: 'Bassa'},
+  {command: 'speed_med', label: 'Media'},
+  {command: 'speed_max', label: 'Alta'},
+  {command: 'speed_mute', label: 'Mute'},
+];
+
+const featureButtons = [
+  {command: 'turbo_on', label: 'Turbo'},
+  {command: 'energysave_on', label: 'Eco'},
+  {command: 'display_off', label: 'Display off'},
+  {command: 'sleep_off', label: 'Sleep off'},
+  {command: 'vert_swing', label: 'Swing vert.'},
+  {command: 'hor_swing', label: 'Swing orizz.'},
+];
+
 async function request(path, options = {}) {
   const res = await fetch(path, options);
   if (res.status === 401) {
@@ -18,6 +42,15 @@ function setBusy(value) {
   document.querySelectorAll('button, select, input').forEach(el => {
     el.disabled = value;
   });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function fmtDate(value) {
@@ -55,12 +88,12 @@ function applyState(state) {
   if (!devices.some(device => device.ip === selectedHost)) {
     selectedHost = devices[0]?.ip || '';
   }
-  localStorage.setItem('selectedHost', selectedHost);
+  if (selectedHost) localStorage.setItem('selectedHost', selectedHost);
   renderDeviceList();
   renderDeviceDetail();
   renderTimers();
   const ok = devices.filter(d => d.status && d.status.ok).length;
-  $('status').textContent = `Stato cache: ${ok}/${devices.length}`;
+  $('status').textContent = `${ok}/${devices.length} online nella cache`;
   $('lastPoll').textContent = fmtDate(state.last_poll);
   $('lastTimeSync').textContent = fmtDate(state.last_time_sync);
   $('lastTimer').textContent = fmtDate(state.last_timer_run);
@@ -69,22 +102,30 @@ function applyState(state) {
 
 function powerInfo(device) {
   const fields = device?.status?.fields || {};
-  const label = fields.power || (device?.status?.ok ? 'OK' : 'NON RISPONDE');
-  const stateClass = fields.power === 'ON' ? 'on' : fields.power === 'OFF' ? 'off' : 'err';
+  const label = fields.power || (device?.status?.ok ? 'ONLINE' : 'OFFLINE');
+  const stateClass = fields.power === 'ON' ? 'on' : fields.power === 'OFF' ? 'off' : (device?.status?.ok ? 'online' : 'err');
   return {fields, label, stateClass};
 }
 
 function renderDeviceList() {
+  if (!devices.length) {
+    $('deviceList').innerHTML = '<div class="empty">Nessun condizionatore configurato.</div>';
+    return;
+  }
   $('deviceList').innerHTML = devices.map(device => {
     const info = powerInfo(device);
+    const fields = info.fields;
     const active = device.ip === selectedHost ? ' active' : '';
     return `
-      <button class="device-choice${active}" onclick="selectDevice('${device.ip}')">
-        <span>
-          <strong>${device.location || device.name}</strong>
-          <small>${device.name}</small>
+      <button class="device-choice${active}" onclick="selectDevice('${escapeHtml(device.ip)}')">
+        <span class="device-main">
+          <strong>${escapeHtml(device.location || device.name)}</strong>
+          <small>${escapeHtml(device.name)} · ${escapeHtml(device.ip)}</small>
         </span>
-        <span class="state ${info.stateClass}">${info.label}</span>
+        <span class="device-meta">
+          <span>${fields.indoor_temperature_status ?? '-'}°</span>
+          <span class="state ${info.stateClass}">${escapeHtml(info.label)}</span>
+        </span>
       </button>
     `;
   }).join('');
@@ -104,59 +145,149 @@ function renderDeviceDetail() {
     $('deviceDetail').innerHTML = '<div class="empty">Nessun condizionatore configurato.</div>';
     return;
   }
+
   const info = powerInfo(device);
   const fields = info.fields;
+  const currentTemp = clampTemp(fields.indoor_temperature_setting ?? 24);
+  const ambientTemp = fields.indoor_temperature_status ?? '-';
+  const host = escapeHtml(device.ip);
+
   $('deviceDetail').innerHTML = `
-    <div class="hero-card">
-      <div>
-        <div class="eyebrow">${device.location || 'Ambiente'}</div>
-        <h2>${device.name}</h2>
-        <div class="muted"><code>${device.ip}</code> · <code>${device.mac}</code></div>
+    <section class="climate-hero">
+      <div class="hero-copy">
+        <span class="eyebrow">${escapeHtml(device.location || 'Ambiente')}</span>
+        <h2>${escapeHtml(device.name)}</h2>
+        <div class="muted monospace">${escapeHtml(device.ip)} · ${escapeHtml(device.mac)}</div>
       </div>
-      <div class="big-state ${info.stateClass}">${info.label}</div>
-    </div>
-
-    <div class="metric-grid">
-      <div class="metric"><span>Set</span><strong>${fields.indoor_temperature_setting ?? '-'}</strong></div>
-      <div class="metric"><span>Ambiente</span><strong>${fields.indoor_temperature_status ?? '-'}</strong></div>
-      <div class="metric"><span>Modo</span><strong>${modeLabel(fields.mode_status)}</strong></div>
-      <div class="metric"><span>Ora modulo</span><strong>${fields.clock || '-'}</strong></div>
-    </div>
-
-    <div class="command-surface">
-      <div class="quick-actions">
-        <button class="primary" onclick="lanCmd('${device.ip}', 'on')">Accendi</button>
-        <button class="danger" onclick="lanCmd('${device.ip}', 'off')">Spegni</button>
-        <button onclick="lanCmd('${device.ip}', 'status_102_0')">Leggi stato</button>
-        <button onclick="lanCmd('${device.ip}', 'version')">Firmware</button>
+      <div class="hero-status">
+        <span class="state ${info.stateClass}">${escapeHtml(info.label)}</span>
+        <strong>${ambientTemp}°</strong>
+        <small>temperatura ambiente</small>
       </div>
+    </section>
+
+    <section class="control-board">
+      <article class="temperature-card">
+        <div class="section-title">
+          <span>Temperatura</span>
+          <strong><span id="tempValue">${currentTemp}</span>°C</strong>
+        </div>
+        <input
+          class="temperature-slider"
+          type="range"
+          min="16"
+          max="32"
+          step="1"
+          value="${currentTemp}"
+          oninput="previewTemperature(this.value)"
+          onchange="setTemperature('${host}', this.value)"
+        >
+        <div class="slider-scale"><span>16°</span><span>24°</span><span>32°</span></div>
+      </article>
+
+      <article class="power-card">
+        <button class="power-button on" onclick="lanCmd('${host}', 'on')">
+          <span>Accendi</span>
+          <strong>ON</strong>
+        </button>
+        <button class="power-button off" onclick="lanCmd('${host}', 'off')">
+          <span>Spegni</span>
+          <strong>OFF</strong>
+        </button>
+      </article>
+
+      <article class="panel mode-panel">
+        <div class="section-title"><span>Modalità</span><strong>${modeLabel(fields.mode_status)}</strong></div>
+        <div class="segmented">
+          ${modeButtons.map(item => `
+            <button
+              class="${fields.mode_status === item.value ? 'active' : ''}"
+              onclick="lanCmd('${host}', '${item.command}')"
+            >${item.label}</button>
+          `).join('')}
+        </div>
+      </article>
+
+      <article class="panel fan-panel">
+        <div class="section-title"><span>Ventola</span><strong>${fanLabel(fields.wind_status)}</strong></div>
+        <div class="segmented compact">
+          ${fanButtons.map(item => `<button onclick="lanCmd('${host}', '${item.command}')">${item.label}</button>`).join('')}
+        </div>
+      </article>
+    </section>
+
+    <section class="panel quick-panel">
+      <div class="section-title"><span>Funzioni rapide</span><strong>Comandi</strong></div>
+      <div class="quick-grid">
+        ${featureButtons.map(item => `<button onclick="lanCmd('${host}', '${item.command}')">${item.label}</button>`).join('')}
+      </div>
+    </section>
+
+    <section class="panel data-panel">
+      <div class="metric-grid">
+        <div class="metric"><span>Set</span><strong>${fields.indoor_temperature_setting ?? '-'}°</strong></div>
+        <div class="metric"><span>Ambiente</span><strong>${ambientTemp}°</strong></div>
+        <div class="metric"><span>Ora modulo</span><strong>${fields.clock || '-'}</strong></div>
+        <div class="metric"><span>Display</span><strong>${flagLabel(fields.display_led)}</strong></div>
+      </div>
+    </section>
+
+    <details class="panel advanced-panel">
+      <summary>Comandi avanzati</summary>
       <div class="control-grid">${renderCommandGroups(device.ip)}</div>
-    </div>
+    </details>
 
-    <form class="timer-form selected" onsubmit="createTimer(event, '${device.ip}')">
-      <select name="command">
+    <form class="timer-form selected" onsubmit="createTimer(event, '${host}')">
+      <select name="command" aria-label="Comando timer">
         <option value="on">Accensione</option>
         <option value="off">Spegnimento</option>
       </select>
-      <input name="at" type="time" required>
-      <input name="label" placeholder="Etichetta">
+      <input name="at" type="time" required aria-label="Ora timer">
+      <input name="label" placeholder="Etichetta" aria-label="Etichetta timer">
       <button type="submit">Aggiungi timer</button>
     </form>
   `;
 }
 
+function clampTemp(value) {
+  const temp = Number.parseInt(value, 10);
+  if (Number.isNaN(temp)) return 24;
+  return Math.min(32, Math.max(16, temp));
+}
+
+function previewTemperature(value) {
+  const target = $('tempValue');
+  if (target) target.textContent = clampTemp(value);
+}
+
+function setTemperature(host, value) {
+  const temp = clampTemp(value);
+  return lanCmd(host, `temp_${temp}_C`);
+}
+
 function modeLabel(value) {
-  const modes = {1: 'Auto', 2: 'Freddo', 3: 'Deum.', 4: 'Vent.', 5: 'Caldo'};
+  const modes = {1: 'Auto', 2: 'Freddo', 3: 'Dry', 4: 'Ventola', 5: 'Caldo'};
   return modes[value] || '-';
+}
+
+function fanLabel(value) {
+  const values = {0: 'Auto', 1: 'Bassa', 2: 'Media', 3: 'Alta'};
+  return values[value] || '-';
+}
+
+function flagLabel(value) {
+  if (value === 1) return 'On';
+  if (value === 0) return 'Off';
+  return '-';
 }
 
 function renderCommandGroups(host) {
   return commandGroups.map(group => `
     <label>
-      ${group.name}
-      <select onchange="if (this.value) lanCmd('${host}', this.value); this.value=''">
-        <option value="">Scegli</option>
-        ${group.commands.map(item => `<option value="${item.command}">${item.label}</option>`).join('')}
+      ${escapeHtml(group.name)}
+      <select onchange="if (this.value) lanCmd('${escapeHtml(host)}', this.value); this.value=''">
+        <option value="">Scegli comando</option>
+        ${group.commands.map(item => `<option value="${escapeHtml(item.command)}">${escapeHtml(item.label)}</option>`).join('')}
       </select>
     </label>
   `).join('');
@@ -166,18 +297,18 @@ function renderTimers() {
   const device = selectedDevice();
   const visibleTimers = device ? timers.filter(timer => timer.host === device.ip) : timers;
   if (!visibleTimers.length) {
-    $('timers').innerHTML = '<div class="muted">Nessun timer server per il condizionatore selezionato.</div>';
+    $('timers').innerHTML = '<div class="empty compact-empty">Nessun timer per il condizionatore selezionato.</div>';
     return;
   }
   $('timers').innerHTML = visibleTimers.map(timer => `
     <div class="timer-row">
       <div>
-        <strong>${timer.command === 'on' ? 'Accensione' : 'Spegnimento'} ${timer.at}</strong>
-        <div class="muted">${timer.label || device?.name || timer.host}</div>
-        <div class="muted">Ultima esecuzione: ${fmtDate(timer.last_run_at)}</div>
+        <strong>${timer.command === 'on' ? 'Accensione' : 'Spegnimento'} ${escapeHtml(timer.at)}</strong>
+        <div class="muted">${escapeHtml(timer.label || device?.name || timer.host)}</div>
+        <div class="muted">Ultima esecuzione: ${fmtDate(timer.last_run_at || timer.last_run_date)}</div>
       </div>
-      <button onclick="toggleTimer('${timer.id}', ${timer.enabled ? 'false' : 'true'})">${timer.enabled ? 'Disattiva' : 'Attiva'}</button>
-      <button class="danger" onclick="deleteTimer('${timer.id}')">Elimina</button>
+      <button onclick="toggleTimer('${escapeHtml(timer.id)}', ${timer.enabled ? 'false' : 'true'})">${timer.enabled ? 'Disattiva' : 'Attiva'}</button>
+      <button class="danger" onclick="deleteTimer('${escapeHtml(timer.id)}')">Elimina</button>
       <span class="state ${timer.enabled ? 'on' : 'off'}">${timer.enabled ? 'ATTIVO' : 'PAUSA'}</span>
     </div>
   `).join('');
@@ -249,19 +380,19 @@ async function scan() {
     $('status').textContent = `Trovati ${data.hosts.length} host con porte aperte`;
     $('hosts').innerHTML = data.hosts.map(h => `
       <article class="card">
-        <strong><code>${h.ip}</code></strong>
-        <div class="muted">${h.mac || ''} ${h.vendor || ''}</div>
-        <div>Porte: <code>${h.open_ports.join(', ')}</code></div>
-        <div>${h.http_title || ''}</div>
-        <div class="muted">${h.http_server || ''}</div>
-        <div>${h.classification.map(x => `<span class="tag">${x}</span>`).join('')}</div>
+        <strong><code>${escapeHtml(h.ip)}</code></strong>
+        <div class="muted">${escapeHtml(h.mac || '')} ${escapeHtml(h.vendor || '')}</div>
+        <div>Porte: <code>${escapeHtml(h.open_ports.join(', '))}</code></div>
+        <div>${escapeHtml(h.http_title || '')}</div>
+        <div class="muted">${escapeHtml(h.http_server || '')}</div>
+        <div>${h.classification.map(x => `<span class="tag">${escapeHtml(x)}</span>`).join('')}</div>
       </article>
     `).join('');
     $('wifi').innerHTML = (data.wifi || []).map(n => `
       <article class="card">
-        <strong>${n.ssid || '(nascosta)'}</strong>
-        <div class="muted"><code>${n.bssid}</code></div>
-        <div>Canale ${n.channel}, segnale ${n.signal}, ${n.security || 'aperta'}</div>
+        <strong>${escapeHtml(n.ssid || '(nascosta)')}</strong>
+        <div class="muted"><code>${escapeHtml(n.bssid)}</code></div>
+        <div>Canale ${escapeHtml(n.channel)}, segnale ${escapeHtml(n.signal)}, ${escapeHtml(n.security || 'aperta')}</div>
       </article>
     `).join('');
     $('result').textContent = JSON.stringify(data, null, 2);
