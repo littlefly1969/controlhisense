@@ -317,6 +317,26 @@ def valid_session(value: str) -> bool:
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        path = urlparse(self.path).path
+        if path == "/login":
+            self.serve_static("login.html", send_body=False)
+            return
+        if path in PUBLIC_ASSETS:
+            self.serve_static(path.lstrip("/"), send_body=False)
+            return
+        if path.startswith("/api/"):
+            if not self.require_auth(send_body=False):
+                return
+            if path in {"/api/session", "/api/devices", "/api/status", "/api/timers"}:
+                self.reply_json({}, send_body=False)
+                return
+            self.send_error(404)
+            return
+        if not self.require_auth(send_body=False):
+            return
+        self.serve_static("index.html" if path == "/" else path.lstrip("/"), send_body=False)
+
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/login":
@@ -462,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self.reply_json({"ok": False, "error": str(exc)}, status=500)
 
-    def require_auth(self) -> bool:
+    def require_auth(self, send_body: bool = True) -> bool:
         if CONFIG["dev_no_auth"]:
             return True
         cookie_header = self.headers.get("Cookie", "")
@@ -471,14 +491,14 @@ class Handler(BaseHTTPRequestHandler):
         if morsel and valid_session(morsel.value):
             return True
         if self.path.startswith("/api/"):
-            self.reply_json({"ok": False, "error": "non autenticato"}, status=401)
+            self.reply_json({"ok": False, "error": "non autenticato"}, status=401, send_body=send_body)
         else:
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
         return False
 
-    def serve_static(self, relative_path: str) -> None:
+    def serve_static(self, relative_path: str, send_body: bool = True) -> None:
         path = (WEBAPP_DIR / relative_path).resolve()
         if not str(path).startswith(str(WEBAPP_DIR.resolve())) or not path.is_file():
             self.send_error(404)
@@ -491,13 +511,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if send_body:
+            self.wfile.write(body)
 
     def read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
         return json.loads(self.rfile.read(length) or b"{}")
 
-    def reply_json(self, body, status: int = 200, clear_cookie: bool = False) -> None:
+    def reply_json(self, body, status: int = 200, clear_cookie: bool = False, send_body: bool = True) -> None:
         data = json.dumps(body).encode()
         self.send_response(status)
         if clear_cookie:
@@ -505,7 +526,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        if send_body:
+            self.wfile.write(data)
 
 
 def main() -> int:
