@@ -6,18 +6,18 @@ let selectedHost = localStorage.getItem('selectedHost') || '';
 const $ = id => document.getElementById(id);
 
 const modeButtons = [
-  {command: 'mode_cool', label: 'Freddo', value: 2},
-  {command: 'mode_heat', label: 'Caldo', value: 5},
-  {command: 'mode_dry', label: 'Dry', value: 3},
-  {command: 'mode_fan', label: 'Ventola', value: 4},
+  {command: 'mode_cool', label: 'Freddo', values: [2, 5]},
+  {command: 'mode_heat', label: 'Caldo', values: [3]},
+  {command: 'mode_dry', label: 'Dry', values: [7]},
+  {command: 'mode_fan', label: 'Ventilatore', values: [1, 4]},
 ];
 
 const fanButtons = [
-  {command: 'speed_auto', label: 'Auto'},
-  {command: 'speed_low', label: 'Bassa'},
-  {command: 'speed_med', label: 'Media'},
-  {command: 'speed_max', label: 'Alta'},
-  {command: 'speed_mute', label: 'Mute'},
+  {command: 'speed_auto', label: 'Auto', values: [1]},
+  {command: 'speed_low', label: 'Bassa', values: [5]},
+  {command: 'speed_med', label: 'Media', values: [7]},
+  {command: 'speed_max', label: 'Alta', values: [9]},
+  {command: 'speed_mute', label: 'Mute', values: [3]},
 ];
 
 const featureButtons = [
@@ -198,11 +198,11 @@ function renderDeviceDetail() {
       </article>
 
       <article class="panel mode-panel">
-        <div class="section-title"><span>Modalità</span><strong>${modeLabel(fields.mode_status)}</strong></div>
+        <div class="section-title"><span>Modalità</span><strong>${fields.mode_label || modeLabel(fields.mode_status)}</strong></div>
         <div class="segmented">
           ${modeButtons.map(item => `
             <button
-              class="${fields.mode_status === item.value ? 'active' : ''}"
+              class="${item.values.includes(fields.mode_status) ? 'active' : ''}"
               onclick="lanCmd('${host}', '${item.command}')"
             >${item.label}</button>
           `).join('')}
@@ -210,9 +210,14 @@ function renderDeviceDetail() {
       </article>
 
       <article class="panel fan-panel">
-        <div class="section-title"><span>Ventola</span><strong>${fanLabel(fields.wind_status)}</strong></div>
+        <div class="section-title"><span>Velocità ventola</span><strong>${fields.wind_label || fanLabel(fields.wind_status)}</strong></div>
         <div class="segmented compact">
-          ${fanButtons.map(item => `<button onclick="lanCmd('${host}', '${item.command}')">${item.label}</button>`).join('')}
+          ${fanButtons.map(item => `
+            <button
+              class="${item.values.includes(fields.wind_status) ? 'active' : ''}"
+              onclick="lanCmd('${host}', '${item.command}')"
+            >${item.label}</button>
+          `).join('')}
         </div>
       </article>
     </section>
@@ -229,7 +234,7 @@ function renderDeviceDetail() {
         <div class="metric"><span>Set</span><strong>${fields.indoor_temperature_setting ?? '-'}°</strong></div>
         <div class="metric"><span>Ambiente</span><strong>${ambientTemp}°</strong></div>
         <div class="metric"><span>Ora modulo</span><strong>${fields.clock || '-'}</strong></div>
-        <div class="metric"><span>Display</span><strong>${flagLabel(fields.display_led)}</strong></div>
+        <div class="metric"><span>Ventola</span><strong>${fields.wind_label || fanLabel(fields.wind_status)}</strong></div>
       </div>
     </section>
 
@@ -267,19 +272,17 @@ function setTemperature(host, value) {
 }
 
 function modeLabel(value) {
-  const modes = {1: 'Auto', 2: 'Freddo', 3: 'Dry', 4: 'Ventola', 5: 'Caldo'};
-  return modes[value] || '-';
+  const modes = {1: 'Ventilatore', 2: 'Freddo', 3: 'Caldo', 4: 'Ventilatore', 5: 'Freddo', 7: 'Dry'};
+  return modes[value] || rawStatusLabel(value);
 }
 
 function fanLabel(value) {
-  const values = {0: 'Auto', 1: 'Bassa', 2: 'Media', 3: 'Alta'};
-  return values[value] || '-';
+  const values = {1: 'Auto', 3: 'Mute', 5: 'Bassa', 7: 'Media', 9: 'Alta'};
+  return values[value] || rawStatusLabel(value);
 }
 
-function flagLabel(value) {
-  if (value === 1) return 'On';
-  if (value === 0) return 'Off';
-  return '-';
+function rawStatusLabel(value) {
+  return value === undefined || value === null ? '-' : `Valore ${value}`;
 }
 
 function renderCommandGroups(host) {

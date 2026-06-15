@@ -97,6 +97,23 @@ COMMAND_GROUPS = [
 
 DEVICES = configured_devices()
 
+MODE_LABELS = {
+    1: "Ventilatore",
+    2: "Freddo",
+    3: "Caldo",
+    4: "Ventilatore",
+    5: "Freddo",
+    7: "Dry",
+}
+
+WIND_LABELS = {
+    1: "Auto",
+    3: "Mute",
+    5: "Bassa",
+    7: "Media",
+    9: "Alta",
+}
+
 
 @dataclass
 class LanCommandResult:
@@ -215,6 +232,10 @@ def decode_status_102_0(data: bytes) -> dict[str, Any]:
         fields["power"] = "OFF"
     elif run_status == 1:
         fields["power"] = "ON"
+    if "mode_status" in fields:
+        fields["mode_label"] = MODE_LABELS.get(fields["mode_status"], f"Valore {fields['mode_status']}")
+    if "wind_status" in fields:
+        fields["wind_label"] = WIND_LABELS.get(fields["wind_status"], f"Valore {fields['wind_status']}")
     if "hour" in fields and "minute" in fields:
         fields["clock"] = f"{fields['hour']:02d}:{fields['minute']:02d}"
     if fields.get("poweron_status") == 1:
