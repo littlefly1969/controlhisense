@@ -17,11 +17,13 @@ from urllib.parse import parse_qs, urlparse
 from ac_discovery import DEFAULT_PORTS, discover, wifi_scan
 from aeh_ap_control import DEFAULT_AP_PASSWORD, DEFAULT_IFACE, execute
 from aeh_lan_control import DEVICES, DEVICE_PAUSE, available_command_groups, execute_lan, status_all
+from app_config import load_config
 
 
 ROOT = Path(__file__).resolve().parent
 WEBAPP_DIR = ROOT / "webapp"
 TIMERS_FILE = ROOT / "timers.json"
+APP_CONFIG = load_config()
 
 POLL_INTERVAL_SECONDS = 5 * 60
 TIME_SYNC_INTERVAL_SECONDS = 60 * 60
@@ -538,12 +540,17 @@ def main() -> int:
     parser.add_argument("--secure-cookies", action="store_true")
     args = parser.parse_args()
 
-    password = os.environ.get("AC_WEB_PASSWORD", "")
+    auth_config = APP_CONFIG.get("auth", {})
+    password = os.environ.get("AC_WEB_PASSWORD") or auth_config.get("password", "")
     if not password and not args.dev_no_auth:
         raise SystemExit("Imposta AC_WEB_PASSWORD oppure usa --dev-no-auth solo in locale.")
 
     CONFIG["password_hash"] = password_hash(password) if password else ""
-    CONFIG["session_secret"] = os.environ.get("AC_SESSION_SECRET", secrets.token_hex(32))
+    CONFIG["session_secret"] = (
+        os.environ.get("AC_SESSION_SECRET")
+        or auth_config.get("session_secret")
+        or secrets.token_hex(32)
+    )
     CONFIG["dev_no_auth"] = args.dev_no_auth
     CONFIG["secure_cookies"] = args.secure_cookies
 

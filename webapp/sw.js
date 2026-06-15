@@ -1,4 +1,4 @@
-const CACHE_NAME = 'condizionatori-v1';
+const CACHE_NAME = 'condizionatori-v2';
 const ASSETS = ['/', '/styles.css', '/app.js', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', event => {

@@ -220,11 +220,40 @@ Impostazioni router consigliate per questi moduli:
 
 ## Interfaccia LAN
 
+Configurazione:
+
+```bash
+cp config.example.json config.json
+nano config.json
+```
+
+Nel file puoi impostare password web, secret sessione e lista dei condizionatori:
+
+```json
+{
+  "auth": {
+    "password": "password-lunga",
+    "session_secret": "stringa-casuale-lunga"
+  },
+  "devices": [
+    {
+      "name": "Clima soggiorno",
+      "location": "Soggiorno",
+      "ip": "192.168.1.101",
+      "mac": "b0:41:1d:00:00:01",
+      "softap": "AEH-W4A1-b0411d000001"
+    }
+  ]
+}
+```
+
+`config.json` e' ignorato da Git perche' contiene credenziali e dati locali.
+Le variabili `AC_WEB_PASSWORD` e `AC_SESSION_SECRET`, se presenti, hanno
+precedenza rispetto al file.
+
 Avvio server:
 
 ```bash
-export AC_WEB_PASSWORD='scegli-una-password-lunga'
-export AC_SESSION_SECRET='stringa-casuale-lunga'
 .venv/bin/python server.py --host 127.0.0.1 --port 8787 --secure-cookies
 ```
 
@@ -410,6 +439,8 @@ Non usarli per il controllo Hisense.
 - `aeh_ap_control.py`: comandi XMV/AT e binari verso SoftAP.
 - `aeh_lan_control.py`: comandi LAN diretti verso gli IP configurati.
 - `aeh_w4a1_tool.py`: probe minimale XMV/status.
+- `app_config.py`: caricamento `config.json` e fallback di default.
+- `config.example.json`: esempio configurazione dispositivi/password.
 - `server.py`: backend HTTP con autenticazione, polling, timer e API.
 - `webapp/`: PWA installabile su telefono.
 - `timers.json`: timer server-side persistenti.

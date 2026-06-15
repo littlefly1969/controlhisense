@@ -10,6 +10,8 @@ from typing import Any
 from pyaehw4a1.commands import ReadCommand, UpdateCommand
 from pyaehw4a1.responses import DataPacket, ResponsePacket
 
+from app_config import configured_devices
+
 
 PORT = 8888
 DEFAULT_TIMEOUT = 6.0
@@ -93,32 +95,7 @@ COMMAND_GROUPS = [
     },
 ]
 
-DEVICES = [
-    {
-        "name": "Condizionatore 179",
-        "ip": "192.168.1.101",
-        "mac": "b0:41:1d:00:00:01",
-        "softap": "AEH-W4A1-b0411d000001",
-    },
-    {
-        "name": "Condizionatore 183",
-        "ip": "192.168.1.102",
-        "mac": "b0:41:1d:00:00:02",
-        "softap": "AEH-W4A1-b0411d000002",
-    },
-    {
-        "name": "Condizionatore 184",
-        "ip": "192.168.1.103",
-        "mac": "b0:41:1d:00:00:03",
-        "softap": "AEH-W4A1-b0411d000003",
-    },
-    {
-        "name": "Condizionatore 185",
-        "ip": "192.168.1.104",
-        "mac": "b0:41:1d:00:00:04",
-        "softap": "AEH-W4A1-b0411d000004",
-    },
-]
+DEVICES = configured_devices()
 
 
 @dataclass

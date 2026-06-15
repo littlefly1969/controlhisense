@@ -1,6 +1,7 @@
 let devices = [];
 let commandGroups = [];
 let timers = [];
+let selectedHost = localStorage.getItem('selectedHost') || '';
 
 const $ = id => document.getElementById(id);
 
@@ -25,10 +26,13 @@ function fmtDate(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
+function selectedDevice() {
+  return devices.find(device => device.ip === selectedHost) || devices[0] || null;
+}
+
 async function loadState() {
   const res = await request('/api/status');
-  const state = await res.json();
-  applyState(state);
+  applyState(await res.json());
 }
 
 async function refreshStatus() {
@@ -48,73 +52,128 @@ function applyState(state) {
   devices = state.devices || [];
   commandGroups = state.commands || [];
   timers = state.timers || [];
-  renderDevices();
+  if (!devices.some(device => device.ip === selectedHost)) {
+    selectedHost = devices[0]?.ip || '';
+  }
+  localStorage.setItem('selectedHost', selectedHost);
+  renderDeviceList();
+  renderDeviceDetail();
   renderTimers();
   const ok = devices.filter(d => d.status && d.status.ok).length;
-  $('status').textContent = `Cache stato: ${ok}/${devices.length} dispositivi`;
+  $('status').textContent = `Stato cache: ${ok}/${devices.length}`;
   $('lastPoll').textContent = fmtDate(state.last_poll);
   $('lastTimeSync').textContent = fmtDate(state.last_time_sync);
   $('lastTimer').textContent = fmtDate(state.last_timer_run);
   $('backendState').textContent = state.busy ? `in corso: ${state.last_action || ''}` : (state.last_action || 'idle');
 }
 
-function renderDevices() {
-  $('devices').innerHTML = devices.map(d => {
-    const st = d.status || {};
-    const fields = st.fields || {};
-    const power = fields.power || (st.ok ? 'OK' : 'NON RISPONDE');
-    const stateClass = fields.power === 'ON' ? 'on' : fields.power === 'OFF' ? 'off' : 'err';
+function powerInfo(device) {
+  const fields = device?.status?.fields || {};
+  const label = fields.power || (device?.status?.ok ? 'OK' : 'NON RISPONDE');
+  const stateClass = fields.power === 'ON' ? 'on' : fields.power === 'OFF' ? 'off' : 'err';
+  return {fields, label, stateClass};
+}
+
+function renderDeviceList() {
+  $('deviceList').innerHTML = devices.map(device => {
+    const info = powerInfo(device);
+    const active = device.ip === selectedHost ? ' active' : '';
     return `
-      <article class="card">
-        <strong>${d.name}</strong>
-        <div class="muted"><code>${d.ip}</code> · <code>${d.mac}</code></div>
-        <div class="muted">${d.softap}</div>
-        <div class="state ${stateClass}">${power}</div>
-        ${fields.indoor_temperature_setting !== undefined ? `<div>Set ${fields.indoor_temperature_setting} C · Ambiente ${fields.indoor_temperature_status} C</div>` : ''}
-        ${fields.clock ? `<div>Ora modulo: <code>${fields.clock}</code></div>` : ''}
-        ${fields.poweron_time ? `<div>Timer on modulo: <code>${fields.poweron_time}</code></div>` : ''}
-        ${fields.poweroff_time ? `<div>Timer off modulo: <code>${fields.poweroff_time}</code></div>` : ''}
-        <div class="row">
-          <button class="primary" onclick="lanCmd('${d.ip}', 'on')">On</button>
-          <button class="danger" onclick="lanCmd('${d.ip}', 'off')">Off</button>
-          <button onclick="lanCmd('${d.ip}', 'status_102_0')">Stato</button>
-          <button onclick="lanCmd('${d.ip}', 'version')">Versione</button>
-        </div>
-        <div class="stack">${renderCommandGroups(d.ip)}</div>
-        <form class="timer-form" onsubmit="createTimer(event, '${d.ip}')">
-          <select name="command">
-            <option value="on">Accensione</option>
-            <option value="off">Spegnimento</option>
-          </select>
-          <input name="at" type="time" required>
-          <input name="label" placeholder="Etichetta">
-          <button type="submit">Aggiungi timer</button>
-        </form>
-      </article>
+      <button class="device-choice${active}" onclick="selectDevice('${device.ip}')">
+        <span>
+          <strong>${device.location || device.name}</strong>
+          <small>${device.name}</small>
+        </span>
+        <span class="state ${info.stateClass}">${info.label}</span>
+      </button>
     `;
   }).join('');
 }
 
+function selectDevice(host) {
+  selectedHost = host;
+  localStorage.setItem('selectedHost', host);
+  renderDeviceList();
+  renderDeviceDetail();
+  renderTimers();
+}
+
+function renderDeviceDetail() {
+  const device = selectedDevice();
+  if (!device) {
+    $('deviceDetail').innerHTML = '<div class="empty">Nessun condizionatore configurato.</div>';
+    return;
+  }
+  const info = powerInfo(device);
+  const fields = info.fields;
+  $('deviceDetail').innerHTML = `
+    <div class="hero-card">
+      <div>
+        <div class="eyebrow">${device.location || 'Ambiente'}</div>
+        <h2>${device.name}</h2>
+        <div class="muted"><code>${device.ip}</code> · <code>${device.mac}</code></div>
+      </div>
+      <div class="big-state ${info.stateClass}">${info.label}</div>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric"><span>Set</span><strong>${fields.indoor_temperature_setting ?? '-'}</strong></div>
+      <div class="metric"><span>Ambiente</span><strong>${fields.indoor_temperature_status ?? '-'}</strong></div>
+      <div class="metric"><span>Modo</span><strong>${modeLabel(fields.mode_status)}</strong></div>
+      <div class="metric"><span>Ora modulo</span><strong>${fields.clock || '-'}</strong></div>
+    </div>
+
+    <div class="command-surface">
+      <div class="quick-actions">
+        <button class="primary" onclick="lanCmd('${device.ip}', 'on')">Accendi</button>
+        <button class="danger" onclick="lanCmd('${device.ip}', 'off')">Spegni</button>
+        <button onclick="lanCmd('${device.ip}', 'status_102_0')">Leggi stato</button>
+        <button onclick="lanCmd('${device.ip}', 'version')">Firmware</button>
+      </div>
+      <div class="control-grid">${renderCommandGroups(device.ip)}</div>
+    </div>
+
+    <form class="timer-form selected" onsubmit="createTimer(event, '${device.ip}')">
+      <select name="command">
+        <option value="on">Accensione</option>
+        <option value="off">Spegnimento</option>
+      </select>
+      <input name="at" type="time" required>
+      <input name="label" placeholder="Etichetta">
+      <button type="submit">Aggiungi timer</button>
+    </form>
+  `;
+}
+
+function modeLabel(value) {
+  const modes = {1: 'Auto', 2: 'Freddo', 3: 'Deum.', 4: 'Vent.', 5: 'Caldo'};
+  return modes[value] || '-';
+}
+
 function renderCommandGroups(host) {
   return commandGroups.map(group => `
-    <select onchange="if (this.value) lanCmd('${host}', this.value); this.value=''">
-      <option value="">${group.name}</option>
-      ${group.commands.map(item => `<option value="${item.command}">${item.label}</option>`).join('')}
-    </select>
+    <label>
+      ${group.name}
+      <select onchange="if (this.value) lanCmd('${host}', this.value); this.value=''">
+        <option value="">Scegli</option>
+        ${group.commands.map(item => `<option value="${item.command}">${item.label}</option>`).join('')}
+      </select>
+    </label>
   `).join('');
 }
 
 function renderTimers() {
-  if (!timers.length) {
-    $('timers').innerHTML = '<div class="muted">Nessun timer server configurato.</div>';
+  const device = selectedDevice();
+  const visibleTimers = device ? timers.filter(timer => timer.host === device.ip) : timers;
+  if (!visibleTimers.length) {
+    $('timers').innerHTML = '<div class="muted">Nessun timer server per il condizionatore selezionato.</div>';
     return;
   }
-  const names = Object.fromEntries(devices.map(d => [d.ip, d.name]));
-  $('timers').innerHTML = timers.map(timer => `
+  $('timers').innerHTML = visibleTimers.map(timer => `
     <div class="timer-row">
       <div>
         <strong>${timer.command === 'on' ? 'Accensione' : 'Spegnimento'} ${timer.at}</strong>
-        <div class="muted">${names[timer.host] || timer.host}${timer.label ? ` · ${timer.label}` : ''}</div>
+        <div class="muted">${timer.label || device?.name || timer.host}</div>
         <div class="muted">Ultima esecuzione: ${fmtDate(timer.last_run_at)}</div>
       </div>
       <button onclick="toggleTimer('${timer.id}', ${timer.enabled ? 'false' : 'true'})">${timer.enabled ? 'Disattiva' : 'Attiva'}</button>

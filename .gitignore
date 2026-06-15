@@ -1,4 +1,5 @@
 .env
+config.json
 .git-local/
 .venv/
 __pycache__/

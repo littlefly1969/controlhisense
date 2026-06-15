@@ -1,0 +1,22 @@
+{
+  "auth": {
+    "password": "cambia-questa-password",
+    "session_secret": "cambia-questa-stringa-casuale-lunga"
+  },
+  "devices": [
+    {
+      "name": "Clima soggiorno",
+      "location": "Soggiorno",
+      "ip": "192.168.1.101",
+      "mac": "b0:41:1d:00:00:01",
+      "softap": "AEH-W4A1-b0411d000001"
+    },
+    {
+      "name": "Clima camera",
+      "location": "Camera",
+      "ip": "192.168.1.102",
+      "mac": "b0:41:1d:00:00:02",
+      "softap": "AEH-W4A1-b0411d000002"
+    }
+  ]
+}
