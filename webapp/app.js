@@ -6,18 +6,18 @@ let selectedHost = localStorage.getItem('selectedHost') || '';
 const $ = id => document.getElementById(id);
 
 const modeButtons = [
-  {command: 'mode_cool', label: 'Freddo', values: [2, 5]},
-  {command: 'mode_heat', label: 'Caldo', values: [3]},
-  {command: 'mode_dry', label: 'Dry', values: [7]},
-  {command: 'mode_fan', label: 'Ventilatore', values: [1, 4]},
+  {command: 'mode_cool', label: 'Freddo', values: [4]},
+  {command: 'mode_heat', label: 'Caldo', values: [2]},
+  {command: 'mode_dry', label: 'Dry', values: [6]},
+  {command: 'mode_fan', label: 'Ventilatore', values: [0]},
 ];
 
 const fanButtons = [
-  {command: 'speed_auto', label: 'Auto', values: [1]},
-  {command: 'speed_low', label: 'Bassa', values: [5]},
-  {command: 'speed_med', label: 'Media', values: [7]},
-  {command: 'speed_max', label: 'Alta', values: [9]},
-  {command: 'speed_mute', label: 'Mute', values: [3]},
+  {command: 'speed_auto', label: 'Auto', values: [0]},
+  {command: 'speed_low', label: 'Bassa', values: [4]},
+  {command: 'speed_med', label: 'Media', values: [6]},
+  {command: 'speed_max', label: 'Alta', values: [8]},
+  {command: 'speed_mute', label: 'Mute', values: [2]},
 ];
 
 const featureButtons = [
@@ -272,12 +272,12 @@ function setTemperature(host, value) {
 }
 
 function modeLabel(value) {
-  const modes = {1: 'Ventilatore', 2: 'Freddo', 3: 'Caldo', 4: 'Ventilatore', 5: 'Freddo', 7: 'Dry'};
+  const modes = {0: 'Ventilatore', 2: 'Caldo', 4: 'Freddo', 6: 'Dry'};
   return modes[value] || rawStatusLabel(value);
 }
 
 function fanLabel(value) {
-  const values = {1: 'Auto', 3: 'Mute', 5: 'Bassa', 7: 'Media', 9: 'Alta'};
+  const values = {0: 'Auto', 2: 'Mute', 4: 'Bassa', 6: 'Media', 8: 'Alta'};
   return values[value] || rawStatusLabel(value);
 }
 

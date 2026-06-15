@@ -98,20 +98,18 @@ COMMAND_GROUPS = [
 DEVICES = configured_devices()
 
 MODE_LABELS = {
-    1: "Ventilatore",
-    2: "Freddo",
-    3: "Caldo",
-    4: "Ventilatore",
-    5: "Freddo",
-    7: "Dry",
+    0: "Ventilatore",
+    2: "Caldo",
+    4: "Freddo",
+    6: "Dry",
 }
 
 WIND_LABELS = {
-    1: "Auto",
-    3: "Mute",
-    5: "Bassa",
-    7: "Media",
-    9: "Alta",
+    0: "Auto",
+    2: "Mute",
+    4: "Bassa",
+    6: "Media",
+    8: "Alta",
 }
 
 

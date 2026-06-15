@@ -64,19 +64,19 @@ CONFIG = {
 }
 
 EXPECTED_MODE_BY_COMMAND = {
-    "mode_fan": 1,
-    "mode_heat": 3,
-    "mode_cool": 5,
-    "mode_dry": 7,
+    "mode_fan": 0,
+    "mode_heat": 2,
+    "mode_cool": 4,
+    "mode_dry": 6,
 }
 
 EXPECTED_WIND_BY_COMMAND = {
-    "mode_fan": 7,
-    "speed_auto": 1,
-    "speed_mute": 3,
-    "speed_low": 5,
-    "speed_med": 7,
-    "speed_max": 9,
+    "mode_fan": 6,
+    "speed_auto": 0,
+    "speed_mute": 2,
+    "speed_low": 4,
+    "speed_med": 6,
+    "speed_max": 8,
 }
 
 PUBLIC_ASSETS = {
