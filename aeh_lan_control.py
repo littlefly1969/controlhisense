@@ -40,10 +40,12 @@ COMMAND_GROUPS = [
         "name": "Ventola",
         "commands": [
             {"command": "speed_auto", "label": "Auto"},
-            {"command": "speed_low", "label": "Bassa"},
-            {"command": "speed_med", "label": "Media"},
-            {"command": "speed_max", "label": "Alta"},
-            {"command": "speed_mute", "label": "Mute"},
+            {"command": "speed_1", "label": "1"},
+            {"command": "speed_2", "label": "2"},
+            {"command": "speed_3", "label": "3"},
+            {"command": "speed_4", "label": "4"},
+            {"command": "speed_5", "label": "5"},
+            {"command": "speed_mute", "label": "Silenzioso"},
         ],
     },
     {
@@ -106,10 +108,12 @@ MODE_LABELS = {
 
 WIND_LABELS = {
     0: "Auto",
-    2: "Mute",
-    4: "Bassa",
-    6: "Media",
-    8: "Alta",
+    2: "Silenzioso",
+    4: "1",
+    5: "2",
+    6: "3",
+    7: "4",
+    8: "5",
 }
 
 
@@ -134,12 +138,30 @@ def device_by_ip(ip: str) -> dict[str, str]:
     raise ValueError(f"IP non configurato: {ip}")
 
 
+def update_checksum(payload: bytes) -> bytes:
+    data = bytearray(payload)
+    checksum = sum(data[2:-4]) & 0xFFFF
+    data[-4] = (checksum >> 8) & 0xFF
+    data[-3] = checksum & 0xFF
+    return bytes(data)
+
+
+def wind_speed_payload(level: int) -> bytes:
+    if level not in range(1, 6):
+        raise ValueError(f"velocita' ventola non valida: {level}")
+    data = bytearray(UpdateCommand.speed_low.value)
+    data[16] = level + 4
+    return update_checksum(bytes(data))
+
+
 def command_payload(command: str) -> bytes:
     if command == "version":
         return b"AT+XMV"
     if command == "sync_time":
         now = datetime.now().replace(microsecond=0)
         return f"AT+XMT={now:%H,%M,%S}\r\n".encode()
+    if command.startswith("speed_") and command[-1:].isdigit():
+        return wind_speed_payload(int(command[-1]))
     if command in ReadCommand.__members__:
         return ReadCommand[command].value
     if command in UpdateCommand.__members__:

@@ -14,10 +14,12 @@ const modeButtons = [
 
 const fanButtons = [
   {command: 'speed_auto', label: 'Auto', values: [0]},
-  {command: 'speed_low', label: 'Bassa', values: [4]},
-  {command: 'speed_med', label: 'Media', values: [6]},
-  {command: 'speed_max', label: 'Alta', values: [8]},
-  {command: 'speed_mute', label: 'Mute', values: [2]},
+  {command: 'speed_1', label: '1', values: [4]},
+  {command: 'speed_2', label: '2', values: [5]},
+  {command: 'speed_3', label: '3', values: [6]},
+  {command: 'speed_4', label: '4', values: [7]},
+  {command: 'speed_5', label: '5', values: [8]},
+  {command: 'speed_mute', label: 'Silenzioso', values: [2]},
 ];
 
 const featureButtons = [
@@ -277,7 +279,7 @@ function modeLabel(value) {
 }
 
 function fanLabel(value) {
-  const values = {0: 'Auto', 2: 'Mute', 4: 'Bassa', 6: 'Media', 8: 'Alta'};
+  const values = {0: 'Auto', 2: 'Silenzioso', 4: '1', 5: '2', 6: '3', 7: '4', 8: '5'};
   return values[value] || rawStatusLabel(value);
 }
 
