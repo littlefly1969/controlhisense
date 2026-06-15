@@ -99,8 +99,8 @@ DEVICES = configured_devices()
 
 MODE_LABELS = {
     0: "Ventilatore",
-    2: "Caldo",
-    4: "Freddo",
+    2: "Freddo",
+    4: "Caldo",
     6: "Dry",
 }
 

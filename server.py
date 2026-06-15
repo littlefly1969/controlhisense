@@ -65,8 +65,8 @@ CONFIG = {
 
 EXPECTED_MODE_BY_COMMAND = {
     "mode_fan": 0,
-    "mode_heat": 2,
-    "mode_cool": 4,
+    "mode_cool": 2,
+    "mode_heat": 4,
     "mode_dry": 6,
 }
 
