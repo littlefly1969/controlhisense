@@ -16,7 +16,15 @@ from urllib.parse import parse_qs, urlparse
 
 from ac_discovery import DEFAULT_PORTS, discover, wifi_scan
 from aeh_ap_control import DEFAULT_AP_PASSWORD, DEFAULT_IFACE, execute
-from aeh_lan_control import DEVICES, DEVICE_PAUSE, available_command_groups, execute_lan, status_all
+from aeh_lan_control import (
+    DEVICES,
+    DEVICE_PAUSE,
+    MODE_LABELS,
+    WIND_LABELS,
+    available_command_groups,
+    execute_lan,
+    status_all,
+)
 from app_config import load_config
 
 
@@ -53,6 +61,22 @@ CONFIG = {
     "session_secret": secrets.token_hex(32),
     "dev_no_auth": False,
     "secure_cookies": False,
+}
+
+EXPECTED_MODE_BY_COMMAND = {
+    "mode_fan": 1,
+    "mode_heat": 3,
+    "mode_cool": 5,
+    "mode_dry": 7,
+}
+
+EXPECTED_WIND_BY_COMMAND = {
+    "mode_fan": 7,
+    "speed_auto": 1,
+    "speed_mute": 3,
+    "speed_low": 5,
+    "speed_med": 7,
+    "speed_max": 9,
 }
 
 PUBLIC_ASSETS = {
@@ -164,8 +188,55 @@ def update_cached_status(host: str, status: dict) -> None:
     with STATE_LOCK:
         for index, device in enumerate(APP_STATE["devices"]):
             if device["ip"] == host:
+                status = preserve_missing_status_fields(device.get("status"), status)
                 APP_STATE["devices"][index] = {**device, "status": status}
                 break
+
+
+def preserve_missing_status_fields(previous_status: dict | None, status: dict) -> dict:
+    if not isinstance(status, dict):
+        return status
+    fields = status.get("fields")
+    previous_fields = (previous_status or {}).get("fields")
+    if not isinstance(fields, dict) or not isinstance(previous_fields, dict):
+        return status
+    merged = dict(fields)
+    for key in ("mode_status", "mode_label", "wind_status", "wind_label"):
+        if key not in merged and key in previous_fields:
+            merged[key] = previous_fields[key]
+    return {**status, "fields": merged}
+
+
+def expected_fields_for_command(command: str) -> dict:
+    fields = {}
+    mode = EXPECTED_MODE_BY_COMMAND.get(command)
+    if mode is not None:
+        fields["mode_status"] = mode
+        fields["mode_label"] = MODE_LABELS.get(mode, f"Valore {mode}")
+    wind = EXPECTED_WIND_BY_COMMAND.get(command)
+    if wind is not None:
+        fields["wind_status"] = wind
+        fields["wind_label"] = WIND_LABELS.get(wind, f"Valore {wind}")
+    return fields
+
+
+def update_cached_fields(host: str, fields: dict) -> None:
+    if not fields:
+        return
+    with STATE_LOCK:
+        for index, device in enumerate(APP_STATE["devices"]):
+            if device["ip"] != host:
+                continue
+            status = device.get("status") or {"host": host, "command": "cached-state", "ok": True}
+            current_fields = status.get("fields") if isinstance(status.get("fields"), dict) else {}
+            APP_STATE["devices"][index] = {
+                **device,
+                "status": {
+                    **status,
+                    "fields": {**current_fields, **fields},
+                },
+            }
+            break
 
 
 def poll_all_devices(reason: str = "poll") -> list[dict]:
@@ -174,7 +245,14 @@ def poll_all_devices(reason: str = "poll") -> list[dict]:
         with AC_LOCK:
             devices = status_all()
         with STATE_LOCK:
-            APP_STATE["devices"] = devices
+            previous_by_ip = {device["ip"]: device.get("status") for device in APP_STATE["devices"]}
+            APP_STATE["devices"] = [
+                {
+                    **device,
+                    "status": preserve_missing_status_fields(previous_by_ip.get(device["ip"]), device.get("status")),
+                }
+                for device in devices
+            ]
             APP_STATE["last_poll"] = now_iso()
             APP_STATE["last_action"] = reason
         return devices
@@ -499,6 +577,8 @@ class Handler(BaseHTTPRequestHandler):
                     with AC_LOCK:
                         result = execute_lan(host=host, command=command)
                     body = asdict(result)
+                    if result.ok:
+                        update_cached_fields(host, expected_fields_for_command(command))
                     if command == "status_102_0":
                         update_cached_status(host, body)
                     set_busy(False)
