@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#176b87">
+  <title>Condizionatori</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Condizionatori</h1>
+        <div class="muted" id="status">Pronto</div>
+      </div>
+      <div class="row">
+        <button class="primary" id="refreshBtn">Aggiorna stato</button>
+        <button id="syncTimeBtn">Invia ora</button>
+        <button id="scanBtn">Diagnostica</button>
+        <button id="logoutBtn">Esci</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="cols">
+        <div><strong>Ultimo polling</strong><div class="muted" id="lastPoll">-</div></div>
+        <div><strong>Ultimo invio ora</strong><div class="muted" id="lastTimeSync">-</div></div>
+        <div><strong>Ultimo timer</strong><div class="muted" id="lastTimer">-</div></div>
+        <div><strong>Backend</strong><div class="muted" id="backendState">-</div></div>
+      </div>
+    </section>
+
+    <section class="grid" id="devices"></section>
+
+    <h2>Timer server</h2>
+    <section class="panel">
+      <div class="muted">I timer sono eseguiti dal server web: all'orario impostato inviano On/Off al singolo condizionatore.</div>
+      <div class="stack" id="timers"></div>
+    </section>
+
+    <h2>Diagnostica</h2>
+    <section class="grid" id="hosts"></section>
+    <section class="grid" id="wifi"></section>
+
+    <h2>Risposta</h2>
+    <pre id="result" class="card"></pre>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

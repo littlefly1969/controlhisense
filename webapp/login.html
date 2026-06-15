@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accesso condizionatori</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <form class="login-panel" id="loginForm">
+      <h1>Condizionatori</h1>
+      <label>
+        Password
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary" type="submit">Accedi</button>
+      <div class="muted" id="message"></div>
+    </form>
+  </main>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const message = document.getElementById('message');
+      message.textContent = 'Accesso in corso...';
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: document.getElementById('password').value})
+      });
+      if (res.ok) {
+        location.href = '/';
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      message.textContent = data.error || 'Accesso non riuscito';
+    });
+  </script>
+</body>
+</html>
