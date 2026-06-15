@@ -97,6 +97,7 @@ function applyState(state) {
   $('lastPoll').textContent = fmtDate(state.last_poll);
   $('lastTimeSync').textContent = fmtDate(state.last_time_sync);
   $('lastTimer').textContent = fmtDate(state.last_timer_run);
+  $('serverTime').textContent = fmtDate(state.server_time);
   $('backendState').textContent = state.busy ? `in corso: ${state.last_action || ''}` : (state.last_action || 'idle');
 }
 
@@ -305,13 +306,34 @@ function renderTimers() {
       <div>
         <strong>${timer.command === 'on' ? 'Accensione' : 'Spegnimento'} ${escapeHtml(timer.at)}</strong>
         <div class="muted">${escapeHtml(timer.label || device?.name || timer.host)}</div>
-        <div class="muted">Ultima esecuzione: ${fmtDate(timer.last_run_at || timer.last_run_date)}</div>
+        <div class="muted">Stato: ${timerRuntimeLabel(timer.runtime)}</div>
+        <div class="muted">Ultimo tentativo: ${fmtDate(timer.last_attempt_at)}</div>
+        <div class="muted">Ultima esecuzione riuscita: ${fmtDate(timer.last_run_at || timer.last_run_date)}</div>
+        ${timer.last_result && timer.last_result.ok === false ? `<div class="timer-error">${escapeHtml(timer.last_result.error || 'comando non riuscito')}</div>` : ''}
       </div>
       <button onclick="toggleTimer('${escapeHtml(timer.id)}', ${timer.enabled ? 'false' : 'true'})">${timer.enabled ? 'Disattiva' : 'Attiva'}</button>
       <button class="danger" onclick="deleteTimer('${escapeHtml(timer.id)}')">Elimina</button>
       <span class="state ${timer.enabled ? 'on' : 'off'}">${timer.enabled ? 'ATTIVO' : 'PAUSA'}</span>
     </div>
   `).join('');
+}
+
+function timerRuntimeLabel(runtime) {
+  const labels = {
+    'disabled': 'disattivato',
+    'wrong-day': 'non previsto oggi',
+    'done-today': 'eseguito oggi',
+    'not-yet': 'non ancora scaduto',
+    'missed-window': 'finestra oraria superata',
+    'retry-wait': 'in attesa di ritentare',
+    'due': 'in scadenza ora',
+    'invalid-time': 'orario non valido',
+    'waiting': 'in attesa',
+  };
+  if (!runtime) return '-';
+  const label = labels[runtime.state] || runtime.state || '-';
+  if (runtime.due_delta_minutes === undefined) return label;
+  return `${label} (${runtime.due_delta_minutes} min)`;
 }
 
 async function lanCmd(host, command) {

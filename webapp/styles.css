@@ -112,7 +112,7 @@ label select, label input { color: var(--text); font-weight: 500; }
 
 .cols {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
@@ -433,6 +433,13 @@ label select, label input { color: var(--text); font-weight: 500; }
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.timer-error {
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .grid {

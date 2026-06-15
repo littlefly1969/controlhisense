@@ -30,6 +30,7 @@ TIME_SYNC_INTERVAL_SECONDS = 60 * 60
 SCHEDULER_TICK_SECONDS = 20
 SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 TIMER_GRACE_MINUTES = 10
+TIMER_RETRY_SECONDS = 60
 
 AC_LOCK = threading.Lock()
 STATE_LOCK = threading.Lock()
@@ -83,10 +84,72 @@ def minute_of_day(hhmm: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
+def timer_succeeded_today(timer: dict, today: str) -> bool:
+    if timer.get("last_run_date") != today:
+        return False
+    last_result = timer.get("last_result")
+    return not isinstance(last_result, dict) or last_result.get("ok") is not False
+
+
+def timer_retry_wait_elapsed(timer: dict) -> bool:
+    try:
+        last_attempt_epoch = float(timer.get("last_attempt_epoch", 0))
+    except (TypeError, ValueError):
+        return True
+    return time.time() - last_attempt_epoch >= TIMER_RETRY_SECONDS
+
+
+def timer_runtime_status(timer: dict) -> dict:
+    now_day = current_weekday()
+    now_minute = minute_of_day(current_hhmm())
+    try:
+        timer_minute = minute_of_day(str(timer.get("at", "00:00")))
+    except ValueError:
+        return {"state": "invalid-time", "server_hhmm": current_hhmm(), "server_weekday": now_day}
+    due_delta = now_minute - timer_minute
+    today = today_key()
+    enabled = bool(timer.get("enabled"))
+    day_matches = now_day in timer.get("days", [])
+    in_window = 0 <= due_delta <= TIMER_GRACE_MINUTES
+    succeeded = timer_succeeded_today(timer, today)
+    retry_wait_elapsed = timer_retry_wait_elapsed(timer)
+    state = "waiting"
+    if not enabled:
+        state = "disabled"
+    elif not day_matches:
+        state = "wrong-day"
+    elif succeeded:
+        state = "done-today"
+    elif due_delta < 0:
+        state = "not-yet"
+    elif due_delta > TIMER_GRACE_MINUTES:
+        state = "missed-window"
+    elif not retry_wait_elapsed:
+        state = "retry-wait"
+    elif in_window:
+        state = "due"
+    return {
+        "state": state,
+        "server_hhmm": current_hhmm(),
+        "server_weekday": now_day,
+        "due_delta_minutes": due_delta,
+        "grace_minutes": TIMER_GRACE_MINUTES,
+        "retry_wait_elapsed": retry_wait_elapsed,
+    }
+
+
 def state_snapshot() -> dict:
     with STATE_LOCK:
         snapshot = json.loads(json.dumps(APP_STATE))
-    snapshot["timers"] = load_timers()
+    snapshot["server_time"] = now_iso()
+    snapshot["server_hhmm"] = current_hhmm()
+    snapshot["server_weekday"] = current_weekday()
+    snapshot["scheduler_tick_seconds"] = SCHEDULER_TICK_SECONDS
+    snapshot["timer_grace_minutes"] = TIMER_GRACE_MINUTES
+    snapshot["timers"] = [
+        {**timer, "runtime": timer_runtime_status(timer)}
+        for timer in load_timers()
+    ]
     return snapshot
 
 
@@ -199,6 +262,9 @@ def validate_timer(payload: dict, existing_id: str | None = None) -> dict:
         "enabled": bool(payload.get("enabled", True)),
         "label": str(payload.get("label", "")).strip()[:80],
         "last_run_date": str(payload.get("last_run_date", "")),
+        "last_run_at": str(payload.get("last_run_at", "")),
+        "last_attempt_at": str(payload.get("last_attempt_at", "")),
+        "last_attempt_epoch": payload.get("last_attempt_epoch", 0),
         "last_result": payload.get("last_result"),
     }
 
@@ -247,27 +313,36 @@ def run_due_timers() -> None:
             continue
         if now_day not in timer.get("days", []):
             continue
-        if timer.get("last_run_date") == today:
+        if timer_succeeded_today(timer, today):
+            continue
+        if not timer_retry_wait_elapsed(timer):
             continue
         host = timer["host"]
         command = timer["command"]
         set_busy(True, f"timer:{host}:{command}")
         try:
+            attempted_at = now_iso()
+            timer["last_attempt_at"] = attempted_at
+            timer["last_attempt_epoch"] = time.time()
             with AC_LOCK:
                 result = execute_lan(host=host, command=command)
             timer["last_result"] = asdict(result)
-            timer["last_run_date"] = today
-            timer["last_run_at"] = now_iso()
             changed = True
+            if not result.ok:
+                print(f"Timer fallito: {host} {command}: {result.error}", flush=True)
+                continue
+            timer["last_run_date"] = today
+            timer["last_run_at"] = attempted_at
             with STATE_LOCK:
                 APP_STATE["last_timer_run"] = timer["last_run_at"]
                 APP_STATE["last_action"] = f"timer:{host}:{command}"
             poll_one_device(host, "post-timer-single-poll")
         except Exception as exc:
             timer["last_result"] = {"ok": False, "error": str(exc)}
-            timer["last_run_date"] = today
-            timer["last_run_at"] = now_iso()
+            timer["last_attempt_at"] = now_iso()
+            timer["last_attempt_epoch"] = time.time()
             changed = True
+            print(f"Timer fallito: {host} {command}: {exc}", flush=True)
         finally:
             set_busy(False)
     if changed:
@@ -275,20 +350,31 @@ def run_due_timers() -> None:
 
 
 def scheduler_loop() -> None:
-    sync_time_all("startup-time-sync")
-    poll_all_devices("startup-poll")
+    try:
+        sync_time_all("startup-time-sync")
+    except Exception as exc:
+        print(f"Scheduler startup-time-sync fallito: {exc}", flush=True)
+    try:
+        poll_all_devices("startup-poll")
+    except Exception as exc:
+        print(f"Scheduler startup-poll fallito: {exc}", flush=True)
     next_poll = time.monotonic() + POLL_INTERVAL_SECONDS
     next_time_sync = time.monotonic() + TIME_SYNC_INTERVAL_SECONDS
     while True:
-        run_due_timers()
-        now = time.monotonic()
-        if now >= next_time_sync:
-            sync_time_all("scheduled-time-sync")
-            next_time_sync = now + TIME_SYNC_INTERVAL_SECONDS
-            next_poll = now + POLL_INTERVAL_SECONDS
-        elif now >= next_poll:
-            poll_all_devices("scheduled-poll")
-            next_poll = now + POLL_INTERVAL_SECONDS
+        try:
+            run_due_timers()
+            now = time.monotonic()
+            if now >= next_time_sync:
+                sync_time_all("scheduled-time-sync")
+                next_time_sync = now + TIME_SYNC_INTERVAL_SECONDS
+                next_poll = now + POLL_INTERVAL_SECONDS
+            elif now >= next_poll:
+                poll_all_devices("scheduled-poll")
+                next_poll = now + POLL_INTERVAL_SECONDS
+        except Exception as exc:
+            print(f"Scheduler errore: {exc}", flush=True)
+            with STATE_LOCK:
+                APP_STATE["last_action"] = f"scheduler-error:{exc}"
         time.sleep(SCHEDULER_TICK_SECONDS)
 
 
