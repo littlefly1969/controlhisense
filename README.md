@@ -101,7 +101,30 @@ Fra i piu' utili:
 - `mode_dry`
 - `mode_fan`
 - `temp_16_C` ... `temp_32_C`
-- `speed_auto`, `speed_low`, `speed_med`, `speed_max`, `speed_mute`
+- `speed_auto`, `speed_1` ... `speed_5`, `speed_mute`
+
+## Modello ventola
+
+La ventola e' definita in un'unica tabella `FAN_SPEEDS` in `aeh_lan_control.py`,
+da cui derivano etichette, payload e valori attesi (frontend e `server.py`
+riusano la stessa mappa). Sette stati: `auto`, 5 velocita' (`speed_1`..`speed_5`)
+e `mute`.
+
+| Comando | byte air-volume inviato | wind_status atteso (letto) | note |
+| --- | --- | --- | --- |
+| `speed_auto` | 1 | 0 | nativo libreria, `0` confermato in lettura |
+| `speed_1` | 5 | 4 | = `speed_low` nativo |
+| `speed_2` | 6 | 5 | sintetizzato, da confermare |
+| `speed_3` | 7 | 6 | = `speed_med` nativo |
+| `speed_4` | 8 | 7 | sintetizzato, da confermare |
+| `speed_5` | 9 | 8 | = `speed_max` nativo |
+| `speed_mute` | 3 | 2 | nativo; il protocollo ha anche un bit `mute` separato |
+
+Stato di verifica: la relazione `wind_status = byte_inviato - 1` e' confermata
+solo per `auto`. Da unita' SPENTA il modulo riporta sempre `wind_status 0`,
+quindi la mappatura delle velocita' va calibrata con l'unita' ACCESA prima di
+considerarla definitiva (in particolare `speed_2`/`speed_4` e il significato di
+`mute` come bit separato).
 
 ## Verifica acceso/spento
 

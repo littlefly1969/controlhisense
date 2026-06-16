@@ -19,6 +19,8 @@ from aeh_ap_control import DEFAULT_AP_PASSWORD, DEFAULT_IFACE, execute
 from aeh_lan_control import (
     DEVICES,
     DEVICE_PAUSE,
+    EXPECTED_MODE_BY_COMMAND,
+    EXPECTED_WIND_BY_COMMAND,
     MODE_LABELS,
     WIND_LABELS,
     available_command_groups,
@@ -61,27 +63,6 @@ CONFIG = {
     "session_secret": secrets.token_hex(32),
     "dev_no_auth": False,
     "secure_cookies": False,
-}
-
-EXPECTED_MODE_BY_COMMAND = {
-    "mode_fan": 0,
-    "mode_cool": 2,
-    "mode_heat": 4,
-    "mode_dry": 6,
-}
-
-EXPECTED_WIND_BY_COMMAND = {
-    "mode_fan": 6,
-    "speed_auto": 0,
-    "speed_mute": 2,
-    "speed_1": 4,
-    "speed_2": 5,
-    "speed_3": 6,
-    "speed_4": 7,
-    "speed_5": 8,
-    "speed_low": 4,
-    "speed_med": 6,
-    "speed_max": 8,
 }
 
 PUBLIC_ASSETS = {
