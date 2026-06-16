@@ -8,31 +8,33 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILE = ROOT / "config.json"
 
+# Valori di esempio (placeholder). I dispositivi reali vanno messi in
+# config.json, che e' ignorato da Git. Vedi config.example.json.
 DEFAULT_DEVICES = [
     {
-        "name": "Condizionatore 179",
-        "location": "Zona 179",
+        "name": "Condizionatore 1",
+        "location": "Zona 1",
         "ip": "192.168.1.101",
         "mac": "b0:41:1d:00:00:01",
         "softap": "AEH-W4A1-b0411d000001",
     },
     {
-        "name": "Condizionatore 183",
-        "location": "Zona 183",
+        "name": "Condizionatore 2",
+        "location": "Zona 2",
         "ip": "192.168.1.102",
         "mac": "b0:41:1d:00:00:02",
         "softap": "AEH-W4A1-b0411d000002",
     },
     {
-        "name": "Condizionatore 184",
-        "location": "Zona 184",
+        "name": "Condizionatore 3",
+        "location": "Zona 3",
         "ip": "192.168.1.103",
         "mac": "b0:41:1d:00:00:03",
         "softap": "AEH-W4A1-b0411d000003",
     },
     {
-        "name": "Condizionatore 185",
-        "location": "Zona 185",
+        "name": "Condizionatore 4",
+        "location": "Zona 4",
         "ip": "192.168.1.104",
         "mac": "b0:41:1d:00:00:04",
         "softap": "AEH-W4A1-b0411d000004",

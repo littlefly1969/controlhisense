@@ -16,8 +16,9 @@ funzionamento normale.
 | `192.168.1.103` | `b0:41:1d:00:00:03` | `AEH-W4A1-b0411d000003` | `8888` | `OFF` |
 | `192.168.1.104` | `b0:41:1d:00:00:04` | `AEH-W4A1-b0411d000004` | `8888` | `OFF` |
 
-La password Wi-Fi corretta e' la credenziale tenuta solo in locale.
-Non pubblicare questo repository o report generati se contengono credenziali.
+Tieni le credenziali Wi-Fi e i dati reali della tua rete (IP, MAC, SSID) solo in
+`config.json`, che e' ignorato da Git. Non pubblicare report generati se
+contengono SSID o credenziali.
 
 ## Hardware e rete
 
@@ -30,9 +31,9 @@ Non pubblicare questo repository o report generati se contengono credenziali.
 - Firmware osservato: `+XMV:4.4.6`
 
 I moduli vecchi usano la stessa subnet anche quando sono in SoftAP
-(`192.168.1.10` sul modulo, PC spesso `192.168.1.60/101`). Per questo, quando
+(`192.168.1.10` sul modulo, PC su un IP della stessa subnet). Per questo, quando
 si lavora in SoftAP, i comandi devono essere vincolati all'interfaccia Wi-Fi
-`wlan0`. Quando i moduli sono in LAN, usare gli IP sopra.
+(es. `wlan0`). Quando i moduli sono in LAN, usare gli IP sopra.
 
 ## Setup
 
@@ -222,7 +223,7 @@ Il provisioning manuale e' stato confermato. Sequenza usata con successo:
 ```text
 AT+XMV
 AT+XMAP=<ssid_2_4_ghz>,<password_2_4_ghz>
-AT+XMRS=192.168.1.50,8899
+AT+XMRS=<ip_pc>,8899
 AT+XMCR
 ```
 
@@ -461,13 +462,9 @@ allowlist IP o autenticazione Apache.
 
 ## Altri dispositivi rilevati
 
-Durante le scansioni sono apparsi altri dispositivi non Hisense:
-
-- host `Mongoose/6.18`: dispositivi Shelly;
-- `192.168.1.60` con titolo `ST SPWF01S`: modulo ST/Ariston, non uno degli
-  `AEH-W4A1`.
-
-Non usarli per il controllo Hisense.
+Durante le scansioni possono apparire altri dispositivi non Hisense sulla LAN,
+per esempio moduli Shelly (server `Mongoose`) o moduli ST/Ariston (`ST SPWF01S`).
+Riconoscili dal titolo HTTP o dal vendor e non usarli per il controllo Hisense.
 
 ## File principali
 
