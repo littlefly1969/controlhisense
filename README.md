@@ -460,6 +460,24 @@ Non pubblicare mai il servizio senza autenticazione. Per accesso remoto ancora
 piu' robusto, metti anche una protezione aggiuntiva a monte, per esempio VPN,
 allowlist IP o autenticazione Apache.
 
+## Aggiornamento del clone (deploy)
+
+Per aggiornare un clone (per esempio il server di produzione) alla versione
+pubblicata, usa lo script `deploy.sh` invece di `git pull`. Lo script fa
+`git fetch` + `git reset --hard origin/main`, quindi funziona anche dopo una
+riscrittura della cronologia (force-push) senza errori di "divergent branches".
+I file ignorati da Git (`config.json`, `timers.json`, ...) non vengono toccati.
+
+```bash
+./deploy.sh                  # allinea a origin/main (si ferma se ci sono modifiche locali)
+./deploy.sh --force          # scarta modifiche/commit locali e allinea comunque
+./deploy.sh --service clima  # dopo l'aggiornamento riavvia il servizio systemd indicato
+```
+
+Se in produzione vedi "divergent branches" dopo un force-push, NON fare merge o
+rebase (rimetterebbero i vecchi commit): lancia `./deploy.sh` (o
+`git fetch origin && git reset --hard origin/main`).
+
 ## Altri dispositivi rilevati
 
 Durante le scansioni possono apparire altri dispositivi non Hisense sulla LAN,
@@ -475,6 +493,7 @@ Riconoscili dal titolo HTTP o dal vendor e non usarli per il controllo Hisense.
 - `app_config.py`: caricamento `config.json` e fallback di default.
 - `config.example.json`: esempio configurazione dispositivi/password.
 - `server.py`: backend HTTP con autenticazione, polling, timer e API.
+- `deploy.sh`: aggiornamento sicuro del clone a `origin/main` (anche dopo force-push).
 - `webapp/`: PWA installabile su telefono.
 - `timers.json`: timer server-side persistenti.
 - `report.json`, `aeh_ap_probe.json`: report generati durante le prove.
