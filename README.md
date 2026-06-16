@@ -101,7 +101,30 @@ Fra i piu' utili:
 - `mode_dry`
 - `mode_fan`
 - `temp_16_C` ... `temp_32_C`
-- `speed_auto`, `speed_low`, `speed_med`, `speed_max`, `speed_mute`
+- `speed_auto`, `speed_1` ... `speed_5`, `speed_mute`
+
+## Modello ventola
+
+La ventola e' definita in un'unica tabella `FAN_SPEEDS` in `aeh_lan_control.py`,
+da cui derivano etichette, payload e valori attesi (frontend e `server.py`
+riusano la stessa mappa). Sette stati: `auto`, 5 velocita' (`speed_1`..`speed_5`)
+e `mute`.
+
+| Comando | byte air-volume inviato | wind_status atteso (letto) | note |
+| --- | --- | --- | --- |
+| `speed_auto` | 1 | 0 | nativo libreria, `0` confermato in lettura |
+| `speed_1` | 5 | 4 | = `speed_low` nativo |
+| `speed_2` | 6 | 5 | sintetizzato, da confermare |
+| `speed_3` | 7 | 6 | = `speed_med` nativo |
+| `speed_4` | 8 | 7 | sintetizzato, da confermare |
+| `speed_5` | 9 | 8 | = `speed_max` nativo |
+| `speed_mute` | 3 | 2 | nativo; il protocollo ha anche un bit `mute` separato |
+
+Stato di verifica: la relazione `wind_status = byte_inviato - 1` e' confermata
+solo per `auto`. Da unita' SPENTA il modulo riporta sempre `wind_status 0`,
+quindi la mappatura delle velocita' va calibrata con l'unita' ACCESA prima di
+considerarla definitiva (in particolare `speed_2`/`speed_4` e il significato di
+`mute` come bit separato).
 
 ## Verifica acceso/spento
 
@@ -274,6 +297,15 @@ Non usare `--dev-no-auth` se il servizio e' raggiungibile da altri dispositivi.
 La versione attuale dell'interfaccia lavora direttamente sui quattro IP LAN
 configurati in `aeh_lan_control.py`.
 
+L'interfaccia e' mobile-first e ha due modalita', commutabili dall'interruttore
+in alto a destra (la scelta e' ricordata nel browser):
+
+- **Utente**: solo i controlli quotidiani (accensione, dial temperatura,
+  modalita', ventola, funzioni rapide, timer). Nessuna diagnostica.
+- **Avanzata**: aggiunge i comandi evoluti completi (tutti i gruppi di
+  `pyaehw4a1`) e la sezione di diagnostica (invio ora ai moduli, scansione
+  rete/SoftAP, stato backend, risposta grezza).
+
 Funzioni disponibili:
 
 - mostra stato `ON/OFF` leggendo `status_102_0`;
@@ -281,11 +313,11 @@ Funzioni disponibili:
 - cambia modo, temperatura e velocita' ventola;
 - espone le altre funzioni gia' presenti in `pyaehw4a1`: turbo, eco,
   display, sleep, alette verticali/orizzontali, Celsius/Fahrenheit e letture
-  diagnostiche;
+  diagnostiche (modalita' avanzata);
 - interroga firmware con `AT+XMV`;
 - mostra ora e timer letti da `status_102_0`, quando presenti;
 - gestisce timer server-side per accensione/spegnimento;
-- mantiene una sezione di diagnostica per scansione rete e SoftAP.
+- mantiene una sezione di diagnostica per scansione rete e SoftAP (avanzata).
 
 I comandi operativi inviati dalla UI o da `/api/lan-command` sono sempre per
 singolo host. Dopo un comando il server rilegge solo lo stesso condizionatore
@@ -299,7 +331,10 @@ Il backend mantiene una cache dello stato:
 - circa ogni ora, al posto del polling previsto, esegue il ciclo di sync ora;
 - ogni 20 secondi controlla se ci sono timer server in scadenza;
 - `GET /api/status` restituisce l'ultimo stato in cache;
-- `GET /api/status?refresh=1` forza una lettura immediata dei quattro moduli.
+- `GET /api/status?refresh=1&host=<ip>` forza la lettura del SOLO condizionatore
+  indicato (e' il pulsante "aggiorna" della scheda selezionata);
+- `GET /api/status?refresh=1` senza `host` valido ricade sulla lettura di tutti
+  e quattro i moduli.
 
 ## Timer server-side
 
@@ -333,7 +368,8 @@ Endpoint principali:
 
 - `GET /api/devices`: elenco dei quattro moduli configurati;
 - `GET /api/status`: ultimo stato in cache;
-- `GET /api/status?refresh=1`: lettura sequenziale immediata;
+- `GET /api/status?refresh=1&host=<ip>`: lettura forzata del solo modulo indicato
+  (senza `host` valido ricade su tutti e quattro);
 - `POST /api/lan-command`: comando LAN a un modulo configurato;
 - `POST /api/login`: autenticazione web;
 - `POST /api/logout`: chiusura sessione.

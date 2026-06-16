@@ -19,6 +19,44 @@ DEFAULT_RETRIES = 3
 RETRY_PAUSE = 6.0
 DEVICE_PAUSE = 1.5
 
+
+# --- Modello ventola: UNICA fonte di verita' --------------------------------
+# Stato di verifica (giugno 2026, sonda su modulo spento + semantica libreria):
+#   - `air_byte` e' il byte 16 del pacchetto update inviato al modulo. I valori
+#     nativi della libreria pyaehw4a1 sono auto=1, mute=3, low=5, med=7, max=9
+#     (verificati). speed_2 (6) e speed_4 (8) sono SINTETIZZATI riempiendo i
+#     buchi fra le velocita' native: la loro esistenza come velocita' fisiche
+#     distinte NON e' ancora confermata sul campo.
+#   - `wind_status` e' il valore atteso in lettura (status_102_0) e risulta
+#     = air_byte - 1. Confermato solo per auto (comando 1 -> letto 0); per gli
+#     altri e' IPOTESI coerente, da verificare con l'unita' ACCESA: da spenta il
+#     modulo riporta sempre wind_status 0, quindi non e' calibrabile da spento.
+#   - "Silenzioso" e' mappato su wind_status 2, ma nel protocollo esiste anche un
+#     bit `mute` separato (offset 166): da verificare quale dei due conta davvero.
+@dataclass(frozen=True)
+class FanSpeed:
+    command: str       # nome comando esposto da UI/API
+    label: str         # etichetta mostrata
+    air_byte: int      # byte 16 inviato nel pacchetto update
+    wind_status: int   # valore atteso in lettura (status_102_0)
+    native: str | None = None  # UpdateCommand nativo, se esiste; altrimenti sintetizzato
+
+
+FAN_SPEEDS: list[FanSpeed] = [
+    FanSpeed("speed_auto", "Auto",       1, 0, native="speed_auto"),
+    FanSpeed("speed_1",    "1",          5, 4, native="speed_low"),
+    FanSpeed("speed_2",    "2",          6, 5),
+    FanSpeed("speed_3",    "3",          7, 6, native="speed_med"),
+    FanSpeed("speed_4",    "4",          8, 7),
+    FanSpeed("speed_5",    "5",          9, 8, native="speed_max"),
+    FanSpeed("speed_mute", "Silenzioso", 3, 2, native="speed_mute"),
+]
+
+FAN_SPEED_BY_COMMAND: dict[str, FanSpeed] = {fs.command: fs for fs in FAN_SPEEDS}
+
+WIND_LABELS: dict[int, str] = {fs.wind_status: fs.label for fs in FAN_SPEEDS}
+
+
 COMMAND_GROUPS = [
     {
         "name": "Alimentazione",
@@ -38,15 +76,7 @@ COMMAND_GROUPS = [
     },
     {
         "name": "Ventola",
-        "commands": [
-            {"command": "speed_auto", "label": "Auto"},
-            {"command": "speed_1", "label": "1"},
-            {"command": "speed_2", "label": "2"},
-            {"command": "speed_3", "label": "3"},
-            {"command": "speed_4", "label": "4"},
-            {"command": "speed_5", "label": "5"},
-            {"command": "speed_mute", "label": "Silenzioso"},
-        ],
+        "commands": [{"command": fs.command, "label": fs.label} for fs in FAN_SPEEDS],
     },
     {
         "name": "Funzioni",
@@ -106,15 +136,26 @@ MODE_LABELS = {
     6: "Dry",
 }
 
-WIND_LABELS = {
-    0: "Auto",
-    2: "Silenzioso",
-    4: "1",
-    5: "2",
-    6: "3",
-    7: "4",
-    8: "5",
+# Modo atteso dopo un comando mode_* (ottimistico, prima del re-poll).
+EXPECTED_MODE_BY_COMMAND = {
+    "mode_fan": 0,
+    "mode_cool": 2,
+    "mode_heat": 4,
+    "mode_dry": 6,
 }
+
+# wind_status atteso dopo un comando ventola (ottimistico, prima del re-poll).
+# Derivato dall'unica tabella FAN_SPEEDS, piu' gli alias nativi della libreria
+# e l'euristica mode_fan -> velocita' media.
+EXPECTED_WIND_BY_COMMAND = {fs.command: fs.wind_status for fs in FAN_SPEEDS}
+EXPECTED_WIND_BY_COMMAND.update(
+    {
+        "speed_low": FAN_SPEED_BY_COMMAND["speed_1"].wind_status,
+        "speed_med": FAN_SPEED_BY_COMMAND["speed_3"].wind_status,
+        "speed_max": FAN_SPEED_BY_COMMAND["speed_5"].wind_status,
+        "mode_fan": FAN_SPEED_BY_COMMAND["speed_3"].wind_status,
+    }
+)
 
 
 @dataclass
@@ -146,11 +187,15 @@ def update_checksum(payload: bytes) -> bytes:
     return bytes(data)
 
 
-def wind_speed_payload(level: int) -> bytes:
-    if level not in range(1, 6):
-        raise ValueError(f"velocita' ventola non valida: {level}")
+def fan_payload(command: str) -> bytes:
+    spec = FAN_SPEED_BY_COMMAND[command]
+    if spec.native is not None:
+        # auto/mute/low/med/max: pacchetto nativo verificato della libreria
+        # (mute imposta anche il bit dedicato, non solo il byte air-volume).
+        return UpdateCommand[spec.native].value
+    # speed_2 / speed_4: sintetizzati riempiendo i buchi fra le velocita' native.
     data = bytearray(UpdateCommand.speed_low.value)
-    data[16] = level + 4
+    data[16] = spec.air_byte
     return update_checksum(bytes(data))
 
 
@@ -160,8 +205,8 @@ def command_payload(command: str) -> bytes:
     if command == "sync_time":
         now = datetime.now().replace(microsecond=0)
         return f"AT+XMT={now:%H,%M,%S}\r\n".encode()
-    if command.startswith("speed_") and command[-1:].isdigit():
-        return wind_speed_payload(int(command[-1]))
+    if command in FAN_SPEED_BY_COMMAND:
+        return fan_payload(command)
     if command in ReadCommand.__members__:
         return ReadCommand[command].value
     if command in UpdateCommand.__members__:

@@ -2,54 +2,73 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#176b87">
-  <title>Condizionatori</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Clima</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <main class="app-shell">
-    <header class="topbar">
-      <div>
-        <h1>Condizionatori</h1>
-        <div class="muted" id="status">Pronto</div>
+<body data-mode="user">
+  <main class="app">
+    <header class="appbar">
+      <div class="brand">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.5 7 20.5 17M20.5 7 3.5 17"/></svg>
+        </span>
+        <div>
+          <h1>Clima</h1>
+          <p class="status" id="status">Pronto</p>
+        </div>
       </div>
-      <div class="toolbar">
-        <button class="primary" id="refreshBtn">Aggiorna stato</button>
-        <button id="syncTimeBtn">Invia ora</button>
-        <button id="scanBtn">Diagnostica</button>
-        <button id="logoutBtn">Esci</button>
+      <div class="mode-switch" role="tablist" aria-label="Modalità interfaccia">
+        <button id="modeUser" type="button" class="active">Utente</button>
+        <button id="modeAdvanced" type="button">Avanzata</button>
       </div>
     </header>
 
-    <section class="status-strip">
-      <div class="cols">
-        <div><strong>Ultimo polling</strong><div class="muted" id="lastPoll">-</div></div>
-        <div><strong>Ultimo invio ora</strong><div class="muted" id="lastTimeSync">-</div></div>
-        <div><strong>Ultimo timer</strong><div class="muted" id="lastTimer">-</div></div>
-        <div><strong>Ora server</strong><div class="muted" id="serverTime">-</div></div>
-        <div><strong>Backend</strong><div class="muted" id="backendState">-</div></div>
+    <nav class="device-rail" id="deviceList" aria-label="Condizionatori"></nav>
+
+    <section id="deviceDetail"></section>
+
+    <section class="block">
+      <div class="block-head"><h2>Timer</h2></div>
+      <div id="timers" class="timer-list"></div>
+      <form class="timer-form" id="timerForm">
+        <select name="command" aria-label="Tipo timer">
+          <option value="on">Accensione</option>
+          <option value="off">Spegnimento</option>
+        </select>
+        <input name="at" type="time" required aria-label="Ora timer">
+        <input class="full" name="label" type="text" placeholder="Etichetta (facoltativa)" aria-label="Etichetta timer">
+        <button class="full" type="submit">Aggiungi timer</button>
+      </form>
+    </section>
+
+    <section class="block advanced-only">
+      <div class="block-head"><h2>Diagnostica</h2></div>
+      <div class="diag-actions">
+        <button id="syncTimeBtn" type="button">Invia ora ai moduli</button>
+        <button id="scanBtn" type="button">Scansione rete</button>
       </div>
+      <div class="status-strip" id="backendStrip">
+        <div class="cell"><b>Ultimo polling</b><span id="lastPoll">-</span></div>
+        <div class="cell"><b>Ultimo invio ora</b><span id="lastTimeSync">-</span></div>
+        <div class="cell"><b>Ultimo timer</b><span id="lastTimer">-</span></div>
+        <div class="cell"><b>Ora server</b><span id="serverTime">-</span></div>
+        <div class="cell"><b>Backend</b><span id="backendState">-</span></div>
+      </div>
+      <div class="diag-grid" id="hosts"></div>
+      <div class="diag-grid" id="wifi"></div>
+      <details class="adv"><summary>Risposta grezza</summary><pre id="result"></pre></details>
     </section>
 
-    <nav class="device-rail" id="deviceList"></nav>
-
-    <section class="dashboard" id="deviceDetail"></section>
-
-    <h2>Timer server</h2>
-    <section class="panel timer-panel">
-      <div class="muted">I timer sono eseguiti dal server web per il condizionatore selezionato.</div>
-      <div class="stack" id="timers"></div>
-    </section>
-
-    <details class="diagnostics">
-      <summary>Diagnostica</summary>
-      <section class="grid" id="hosts"></section>
-      <section class="grid" id="wifi"></section>
-      <h2>Risposta</h2>
-      <pre id="result" class="card"></pre>
-    </details>
+    <footer class="footer">
+      <span id="footNote"></span>
+      <button class="ghost" id="logoutBtn" type="button">Esci</button>
+    </footer>
   </main>
   <script src="/app.js"></script>
 </body>
