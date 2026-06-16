@@ -297,6 +297,15 @@ Non usare `--dev-no-auth` se il servizio e' raggiungibile da altri dispositivi.
 La versione attuale dell'interfaccia lavora direttamente sui quattro IP LAN
 configurati in `aeh_lan_control.py`.
 
+L'interfaccia e' mobile-first e ha due modalita', commutabili dall'interruttore
+in alto a destra (la scelta e' ricordata nel browser):
+
+- **Utente**: solo i controlli quotidiani (accensione, dial temperatura,
+  modalita', ventola, funzioni rapide, timer). Nessuna diagnostica.
+- **Avanzata**: aggiunge i comandi evoluti completi (tutti i gruppi di
+  `pyaehw4a1`) e la sezione di diagnostica (invio ora ai moduli, scansione
+  rete/SoftAP, stato backend, risposta grezza).
+
 Funzioni disponibili:
 
 - mostra stato `ON/OFF` leggendo `status_102_0`;
@@ -304,11 +313,11 @@ Funzioni disponibili:
 - cambia modo, temperatura e velocita' ventola;
 - espone le altre funzioni gia' presenti in `pyaehw4a1`: turbo, eco,
   display, sleep, alette verticali/orizzontali, Celsius/Fahrenheit e letture
-  diagnostiche;
+  diagnostiche (modalita' avanzata);
 - interroga firmware con `AT+XMV`;
 - mostra ora e timer letti da `status_102_0`, quando presenti;
 - gestisce timer server-side per accensione/spegnimento;
-- mantiene una sezione di diagnostica per scansione rete e SoftAP.
+- mantiene una sezione di diagnostica per scansione rete e SoftAP (avanzata).
 
 I comandi operativi inviati dalla UI o da `/api/lan-command` sono sempre per
 singolo host. Dopo un comando il server rilegge solo lo stesso condizionatore
@@ -322,7 +331,10 @@ Il backend mantiene una cache dello stato:
 - circa ogni ora, al posto del polling previsto, esegue il ciclo di sync ora;
 - ogni 20 secondi controlla se ci sono timer server in scadenza;
 - `GET /api/status` restituisce l'ultimo stato in cache;
-- `GET /api/status?refresh=1` forza una lettura immediata dei quattro moduli.
+- `GET /api/status?refresh=1&host=<ip>` forza la lettura del SOLO condizionatore
+  indicato (e' il pulsante "aggiorna" della scheda selezionata);
+- `GET /api/status?refresh=1` senza `host` valido ricade sulla lettura di tutti
+  e quattro i moduli.
 
 ## Timer server-side
 
@@ -356,7 +368,8 @@ Endpoint principali:
 
 - `GET /api/devices`: elenco dei quattro moduli configurati;
 - `GET /api/status`: ultimo stato in cache;
-- `GET /api/status?refresh=1`: lettura sequenziale immediata;
+- `GET /api/status?refresh=1&host=<ip>`: lettura forzata del solo modulo indicato
+  (senza `host` valido ricade su tutti e quattro);
 - `POST /api/lan-command`: comando LAN a un modulo configurato;
 - `POST /api/login`: autenticazione web;
 - `POST /api/logout`: chiusura sessione.

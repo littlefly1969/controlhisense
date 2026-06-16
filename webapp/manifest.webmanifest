@@ -1,10 +1,10 @@
 {
-  "name": "Condizionatori",
+  "name": "Clima",
   "short_name": "Clima",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef2f5",
-  "theme_color": "#176b87",
+  "background_color": "#0a0f1a",
+  "theme_color": "#0a0f1a",
   "icons": [
     {
       "src": "/icon.svg",

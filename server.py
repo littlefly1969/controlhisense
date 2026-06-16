@@ -246,6 +246,15 @@ def poll_all_devices(reason: str = "poll") -> list[dict]:
         set_busy(False)
 
 
+def poll_for_refresh(host: str) -> None:
+    """Forzatura del polling: se l'host e' un condizionatore configurato si
+    aggiorna SOLO quello, altrimenti si ricade sul polling di tutti."""
+    if host and host in {device["ip"] for device in DEVICES}:
+        poll_one_device(host, "manual-single-poll")
+    else:
+        poll_all_devices("manual-poll")
+
+
 def poll_one_device(host: str, reason: str = "single-poll") -> dict:
     set_busy(True, reason)
     try:
@@ -539,7 +548,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/status":
             query = parse_qs(urlparse(self.path).query)
             if query.get("refresh", ["0"])[0] in ("1", "true", "yes"):
-                poll_all_devices("manual-poll")
+                poll_for_refresh(query.get("host", [""])[0])
             self.reply_json(state_snapshot())
             return
         if path == "/api/timers":
